@@ -93,3 +93,22 @@ const names = ['sophie', 'george', 'waldo', 'stephen', 'henry'];
 const includesWaldo = names.includes('waldo');
 // includesWaldo will be equal to true
 ```
+## Array.spread
+Spreading arrays using the spread operator (...) allows you to expand the elements in an array. It’s useful when concatenating a bunch of arrays together. It’s also a good way to avoid using the splice() method when looking to remove certain elements from an array because it can be combined with the slice() method to prevent direct mutation of an array.
+
+### Example
+Combine two arrays
+
+```js
+const spreadableOne = [1, 2, 3, 4];
+const spreadableTwo = [5, 6, 7, 8];
+
+const combined = [...spreadableOne, ...spreadableTwo];
+// combined will be equal to [1, 2, 3, 4, 5, 6, 7, 8]
+```
+Remove an array element without mutating the original array.
+```js
+const animals = ['squirrel', 'bear', 'deer', 'salmon', 'rat'];
+const mammals = [...animals.slice(0,3), ...animals.slice(4)];
+// mammals will be equal to ['squirrel', 'bear', 'deer', 'rat']
+```
