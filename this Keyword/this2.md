@@ -196,4 +196,143 @@ console.log( b ); // 5
 ```
 bind(..) returns a new function that is hard-coded to call the original function with the this context set as you specified.
 Note: As of ES6, the hard-bound function produced by bind(..) has a .name property that derives from the original target function. For example: bar = foo.bind(..) should have a bar.name value of "bound foo", which is the function call name that should show up in a stack trace.
+### API context
+
+Many libraries' functions, and indeed many new built-in functions in the JavaScript language and host environment, provide an optional parameter, usually called "context", which is designed as a work-around for you not having to use bind(..) to ensure your callback function uses a particular this.
+
+For instance:
+```js
+function foo(el) {
+	console.log( el, this.id );
+}
+
+var obj = {
+	id: "awesome"
+};
+
+// use `obj` as `this` for `foo(..)` calls
+[1, 2, 3].forEach( foo, obj ); // 1 awesome  2 awesome  3 awesome
+```
+Internally, these various functions almost certainly use explicit binding via call(..) or apply(..), saving you the trouble.
+
+## new Binding
+There's really no such thing as "constructor functions", but rather construction calls of functions.
+When a function is invoked with new in front of it, otherwise known as a constructor call, the following things are done automatically:
+
+1.a brand new object is created (aka, constructed) out of thin air
+2.the newly constructed object is [[Prototype]]-linked
+3.the newly constructed object is set as the this binding for that function call
+4.unless the function returns its own alternate object, the new-invoked function call will automatically return the newly constructed object.
+```js
+function foo(a) {
+	this.a = a;
+}
+
+var bar = new foo( 2 );
+console.log( bar.a ); // 2
+```
+By calling foo(..) with new in front of it, we've constructed a new object and set that new object as the this for the call of foo(..). So new is the final way that a function call's this can be bound. We'll call this new binding.
+
+## Everything in order
+So, now we've uncovered the 4 rules for binding this in function calls. All you need to do is find the call-site and inspect it to see which rule applies. But, what if the call-site has multiple eligible rules? There must be an order of precedence to these rules.
+
+**It should be clear that the default binding is the lowest priority rule of the 4. So we'll just set that one aside.**
+Which is more precedent, implicit binding or explicit binding? Let's test it:
+```js
+function foo(){
+	console.log(this.a);
+}
+var obj1 = {
+	a:2,
+	foo:foo
+}
+
+var obj2 = {
+	a:3,
+	foo:foo
+}
+
+obj1.foo(); //2
+obj2.foo(); //3
+
+obj1.foo.call(obj2); //3
+obj2.foo.call(obj1); //2
+
+```
+So, **explicit binding takes precedence over implicit binding**, which means you should ask first if explicit binding applies before checking for implicit binding.
+
+Now, we just need to figure out where new binding fits in the precedence.
+```js
+function foo(){
+	this.a = something;
+}
+var obj1 = {
+	foo:foo;
+}
+var obj2 = {}
+
+obj1.foo( 2 );
+console.log( obj1.a ); // 2
+
+obj1.foo.call( obj2, 3 );
+console.log( obj2.a ); // 3
+
+var bar = new obj1.foo( 4 );
+console.log( obj1.a ); // 2
+console.log( bar.a ); // 4
+```
+OK, new binding is more precedent than implicit binding. But do you think new binding is more or less precedent than explicit binding?
+
+**Note:** new and call/apply cannot be used together, so new foo.call(obj1) is not allowed, to test new binding directly against explicit binding. But we can still use a hard binding to test the precedence of the two rules.
+
+By that reasoning, it would seem obvious to assume that hard binding (which is a form of explicit binding) is more precedent than new binding, and thus cannot be overridden with new.
+
+```js
+]function foo(something) {
+	this.a = something;
+}
+
+var obj1 = {};
+
+var bar = foo.bind( obj1 );
+bar( 2 );
+console.log( obj1.a ); // 2
+
+var baz = new bar( 3 );
+console.log( obj1.a ); // 2
+console.log( baz.a ); // 3
+```
+Whoa! bar is hard-bound against obj1, but new bar(3) did not change obj1.a to be 3 as we would have expected. Instead, the hard bound (to obj1) call to bar(..) is able to be overridden with new. Since new was applied, we got the newly created object back, which we named baz, and we see in fact that baz.a has the value 3.
+
+The primary reason for this behavior is to create a function (that can be used with new for constructing objects) that essentially ignores the this hard binding but which presets some or all of the function's arguments. One of the capabilities of bind(..) is that any arguments passed after the first this binding argument are defaulted as standard arguments to the underlying function (technically called "partial application", which is a subset of "currying").
+
+```js
+function foo(p1,p2) {
+	this.val = p1 + p2;
+}
+
+// using `null` here because we don't care about
+// the `this` hard-binding in this scenario, and
+// it will be overridden by the `new` call anyway!
+var bar = foo.bind( null, "p1" );
+
+var baz = new bar( "p2" );
+
+baz.val; // p1p2
+```
+## Determining this
+Now, we can summarize the rules for determining this from a function call's call-site, in their order of precedence. Ask these questions in this order, and stop when the first rule applies.
+
+1. Is the function called with new (new binding)? If so, this is the newly constructed object.
+
+`var bar = new foo()`
+
+2. Is the function called with call or apply (explicit binding), even hidden inside a bind hard binding? If so, this is the explicitly specified object.
+`var bar = foo.call( obj2 )`
+3. Is the function called with a context (implicit binding), otherwise known as an owning or containing object? If so, this is that context object.
+
+`var bar = obj1.foo()`
+4. Is the function called with a context (implicit binding), otherwise known as an owning or containing object? If so, this is that context object.
+
+`var bar = obj1.foo()`
 
