@@ -16,7 +16,20 @@ ajax( "http://some.url.1", function myCallbackFunction(data){
 Before you protest in disagreement, no, your desire to avoid the mess of callbacks is not justification for blocking, synchronous Ajax.
 
 For example, consider this code:
+```js
+function now() {
+	return 21;
+}
 
+function later() {
+	answer = answer * 2;
+	console.log( "Meaning of life:", answer );
+}
+
+var answer = now();
+
+setTimeout( later, 1000 ); // Meaning of life: 42
+```
 
 
 
